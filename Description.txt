@@ -46,7 +46,7 @@ Classification Report:
 weighted avg       0.96      0.95      0.95       235
 
 
-Simulsi predict
+Simulation predict
 1/1 [==============================] - 0s 108ms/step
 Predicted Label: bayi sedang lelah
 Prediction Probabilities:
