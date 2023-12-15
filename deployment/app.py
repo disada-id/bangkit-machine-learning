@@ -3,6 +3,7 @@ import numpy as np
 from tensorflow.keras.models import load_model
 import librosa
 import os
+import requests 
 
 app = Flask(__name__)
 
@@ -75,7 +76,15 @@ def predict():
             'prediction_probabilities': {label: prob.item() for label, prob in zip(label_mapping.values(), prediction_probabilities)}
         }
 
-        return jsonify(results)
+        # Make a request to HapiJS backend
+        hapijs_endpoint = 'urlnya paste disini Bi'  
+        response = requests.post(hapijs_endpoint, json=results)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            return jsonify(results)  
+        else:
+            return jsonify({'error': f'Request to HapiJS backend gagal dengan kode status{response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
