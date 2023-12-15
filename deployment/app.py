@@ -4,11 +4,18 @@ from tensorflow.keras.models import load_model
 import librosa
 import os
 import requests 
+from google.cloud import storage
 
 app = Flask(__name__)
 
 # Path to the trained model
-model_path = 'model\checkpoint.h5' #pastikan path modelnya
+model_path = 'model\checkpoint.h5' # pastikan path modelnya
+
+# Set your GCS bucket name
+gcs_bucket_name = 'nama_bucketnya'
+
+# Initialize GCS client
+storage_client = storage.Client()
 
 # Mapping from class index to labels
 label_mapping = {
@@ -23,8 +30,14 @@ label_mapping = {
 loaded_model = load_model(model_path)
 model_input_shape = loaded_model.input_shape[1:]
 
-def extract_features_new_audio(file_path):
-    y, sr = librosa.load(file_path)
+# Function to upload file to GCS
+def upload_to_gcs(file, destination_blob_name):
+    bucket = storage_client.bucket(gcs_bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_file(file)
+
+def extract_features_new_audio(file_uri):
+    y, sr = librosa.load(file_uri)
 
     # Extract audio features as before
     mfccs = np.mean(librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13), axis=1)
@@ -60,12 +73,17 @@ def predict():
         # Get the uploaded file from the mobile app
         audio_file = request.files['audio']
 
-        # Save the file to a temporary location
-        temp_file_path = 'temp_audio.wav' 
-        audio_file.save(temp_file_path)
+        # Set a unique name for the audio file in GCS
+        gcs_blob_name = 'audio_files/{}'.format(audio_file.filename)
+
+        # Save the file to GCS
+        upload_to_gcs(audio_file, gcs_blob_name)
+
+        # Get the GCS URI for the uploaded audio
+        gcs_audio_uri = f'gs://{gcs_bucket_name}/{gcs_blob_name}'
 
         # Extract features from the uploaded audio
-        audio_features = extract_features_new_audio(temp_file_path)
+        audio_features = extract_features_new_audio(gcs_audio_uri)
 
         # Perform prediction
         predicted_label, prediction_probabilities = predict_label(audio_features)
@@ -84,7 +102,7 @@ def predict():
         if response.status_code == 200:
             return jsonify(results)  
         else:
-            return jsonify({'error': f'Request to HapiJS backend gagal dengan kode status{response.status_code}'})
+            return jsonify({'error': f'Request to HapiJS backend gagal dengan kode status {response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
