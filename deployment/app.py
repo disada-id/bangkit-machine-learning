@@ -8,7 +8,7 @@ import requests
 app = Flask(__name__)
 
 # Path to the trained model
-model_path = 'model\checkpoint.h5'
+model_path = 'model\checkpoint.h5' #pastikan path modelnya
 
 # Mapping from class index to labels
 label_mapping = {
@@ -61,7 +61,7 @@ def predict():
         audio_file = request.files['audio']
 
         # Save the file to a temporary location
-        temp_file_path = 'temp_audio.wav'
+        temp_file_path = 'temp_audio.wav' 
         audio_file.save(temp_file_path)
 
         # Extract features from the uploaded audio
