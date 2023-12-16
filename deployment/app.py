@@ -12,7 +12,7 @@ app = Flask(__name__)
 model_path = 'model\checkpoint.h5' # pastikan path modelnya
 
 # Set your GCS bucket name
-gcs_bucket_name = 'nama_bucketnya'
+gcs_bucket_name = 'audio_disada'
 
 # Initialize GCS client
 storage_client = storage.Client()
@@ -95,14 +95,14 @@ def predict():
         }
 
         # Make a request to HapiJS backend
-        hapijs_endpoint = 'urlnya paste disini Bi'  
+        hapijs_endpoint = 'url-backend-node'  
         response = requests.post(hapijs_endpoint, json=results)
 
         # Check if the request was successful
         if response.status_code == 200:
             return jsonify(results)  
         else:
-            return jsonify({'error': f'Request to HapiJS backend gagal dengan kode status {response.status_code}'})
+            return jsonify({'error': f'Request to HapiJS backend failed with status code {response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
