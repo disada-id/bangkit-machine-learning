@@ -5,17 +5,27 @@ import librosa
 import os
 import requests 
 from google.cloud import storage
+from google.auth import exceptions
 
 app = Flask(__name__)
 
+# Set the path to the service account key file
+key_path = 'serviceaccountkey.json'
+
+# Set the environment variable for Google Cloud credentials
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
+
 # Path to the trained model
-model_path = 'model\checkpoint.h5' # pastikan path modelnya
+model_path = 'model\checkpoint.h5'
 
 # Set your GCS bucket name
 gcs_bucket_name = 'audio_disada'
 
-# Initialize GCS client
-storage_client = storage.Client()
+try:
+    # Initialize GCS client
+    storage_client = storage.Client()
+except exceptions.DefaultCredentialsError as e:
+    print(f"Error: {e}")
 
 # Mapping from class index to labels
 label_mapping = {
