@@ -95,7 +95,7 @@ def predict():
         }
 
         # Make a request to HapiJS backend
-        hapijs_endpoint = 'url-backend-node'  
+        hapijs_endpoint = 'https://disada-backend-cc-ctlb7v5egq-et.a.run.app/predict/recommendation'  
         response = requests.post(hapijs_endpoint, json=results)
 
         # Check if the request was successful
