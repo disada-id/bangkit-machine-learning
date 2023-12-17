@@ -3,3 +3,4 @@ numpy==1.21.2
 librosa==0.8.1
 tensorflow==2.6.0
 requests==2.26.0
+google-auth==2.6.0
