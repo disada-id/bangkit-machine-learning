@@ -3,7 +3,7 @@ import numpy as np
 from tensorflow.keras.models import load_model
 import librosa
 import os
-import requests  # Import library untuk melakukan HTTP request
+import requests
 
 app = Flask(__name__)
 
@@ -12,7 +12,7 @@ model_path = 'model\checkpoint.h5'
 
 # Mapping from class index to labels
 label_mapping = {
-    0: 'sedang merasa kesakitan',
+    0: 'merasa kesakitan',
     1: 'sedang merasa kembung',
     2: 'merasa kurang nyaman',
     3: 'sedang lapar',
@@ -56,12 +56,23 @@ def predict_label(audio_features):
     predicted_class = np.argmax(prediction_probabilities)
     predicted_label = label_mapping[predicted_class]
 
-    return predicted_label, prediction_probabilities[0]
+    # Map predicted label to HappyJS format
+    happyjs_mapping = {
+        'merasa kesakitan': 'bayi_sedang_kesakitan',
+        'sedang merasa kembung': 'bayi_sedang_merasa_kembung',
+        'merasa kurang nyaman': 'bayi_merasa_kurang_nyaman',
+        'sedang lapar': 'bayi_sedang_lapar',
+        'sedang lelah': 'bayi_sedang_lelah'
+    }
+
+    happyjs_label = happyjs_mapping.get(predicted_label, 'unknown')
+
+    return happyjs_label, prediction_probabilities[0]
 
 def get_happyjs_recommendation(predicted_label):
     # Make an HTTP request to HappyJS endpoint
     happyjs_url = 'https://disada-backend-cc-ctlb7v5egq-et.a.run.app/predict/recommendation'
-    response = requests.post(happyjs_url, json={'Solusi': predicted_label})
+    response = requests.post(happyjs_url, json={'emotion': predicted_label})
     
     # Check if the request was successful (status code 200)
     if response.status_code == 200:
@@ -101,11 +112,17 @@ def predict_mobile():
         # Get recommendation from HappyJS
         happyjs_recommendation = get_happyjs_recommendation(predicted_label)
 
+        # Handle recommendation and solution
+        if happyjs_recommendation and 'rekomendasi' in happyjs_recommendation:
+            solusi_penanganan = happyjs_recommendation['rekomendasi']
+        else:
+            solusi_penanganan = 'Tidak ada rekomendasi solusi yang tersedia untuk saat ini.'
+
         # Display the results as JSON
         results = {
-            'Bayi Anda': predicted_label,
-            'Kemungkinan lainnya': {label: float(prob) for label, prob in zip(label_mapping.values(), prediction_probabilities)},
-            'Solusi untuk buah hati Anda': happyjs_recommendation
+            'Hasil': predicted_label,
+            'kemungkinan': {label: float(prob) for label, prob in zip(label_mapping.values(), prediction_probabilities)},
+            'Solusi yang bisa Anda lakukan': solusi_penanganan
         }
 
         return jsonify(results)
