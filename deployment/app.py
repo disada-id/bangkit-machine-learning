@@ -56,29 +56,33 @@ def predict_label(audio_features):
     predicted_class = np.argmax(prediction_probabilities)
     predicted_label = label_mapping[predicted_class]
 
-    # Map predicted label to HappyJS format
-    happyjs_mapping = {
-        'merasa kesakitan': 'bayi_sedang_kesakitan',
-        'sedang merasa kembung': 'bayi_sedang_merasa_kembung',
-        'merasa kurang nyaman': 'bayi_merasa_kurang_nyaman',
-        'sedang lapar': 'bayi_sedang_lapar',
-        'sedang lelah': 'bayi_sedang_lelah'
+    return predicted_label, prediction_probabilities[0]
+
+def get_food_recommendation(predicted_label):
+    rekomendasi_panganan = {
+        "merasa kesakitan": {
+            "rekomendasi": ["ASI (Air Susu Ibu)", "Pisang", "Bubur ayam", "Semangka", "Yogurt"],
+            "penjelasan": "ASI adalah pilihan utama untuk memberikan nutrisi dan kenyamanan. Pisang, bubur ayam, semangka, dan yogurt juga dapat membantu memberikan nutrisi yang mudah dicerna dan menenangkan."
+        },
+        "sedang merasa kembung": {
+            "rekomendasi": ["ASI", "Pepaya", "Bubur labu kuning", "Apel", "Teh chamomile (dalam kadar rendah)"],
+            "penjelasan": "ASI tetap menjadi pilihan utama. Pepaya, bubur labu kuning, apel, dan teh chamomile dalam kadar rendah dapat membantu mengurangi rasa kembung dan memberikan kenyamanan."
+        },
+        "merasa kurang nyaman": {
+            "rekomendasi": ["ASI", "Avokad", "Bubur beras merah", "Pear", "Susu formula hypoallergenic"],
+            "penjelasan": "ASI tetap menjadi pilihan utama. Avokad, bubur beras merah, pear, dan susu formula hypoallergenic dapat membantu memberikan nutrisi yang mudah dicerna dan cocok untuk bayi yang merasa kurang nyaman."
+        },
+        "sedang lapar": {
+            "rekomendasi": ["ASI", "Susu formula", "Bubur susu", "Alpukat", "Telur rebus"],
+            "penjelasan": "ASI atau susu formula sesuai dengan kebutuhan. Bubur susu, alpukat, dan telur rebus adalah sumber nutrisi yang baik untuk memenuhi kebutuhan nutrisi saat bayi sedang lapar."
+        },
+        "sedang lelah": {
+            "rekomendasi": ["ASI", "Madu (dalam kadar rendah)", "Bubur quinoa", "Strawberry", "Smoothie buah"],
+            "penjelasan": "ASI tetap menjadi pilihan utama. Madu dalam kadar rendah, bubur quinoa, strawberry, dan smoothie buah dapat memberikan energi tambahan dan nutrisi untuk bayi yang sedang lelah."
+        }
     }
 
-    happyjs_label = happyjs_mapping.get(predicted_label, 'unknown')
-
-    return happyjs_label, prediction_probabilities[0]
-
-def get_happyjs_recommendation(predicted_label):
-    # Make an HTTP request to HappyJS endpoint
-    happyjs_url = 'https://disada-backend-cc-ctlb7v5egq-et.a.run.app/predict/recommendation'
-    response = requests.post(happyjs_url, json={'emotion': predicted_label})
-    
-    # Check if the request was successful (status code 200)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return None
+    return rekomendasi_panganan.get(predicted_label, {})
 
 @app.route('/')
 def index():
@@ -109,20 +113,14 @@ def predict_mobile():
         # Perform prediction
         predicted_label, prediction_probabilities = predict_label(audio_features)
 
-        # Get recommendation from HappyJS
-        happyjs_recommendation = get_happyjs_recommendation(predicted_label)
-
-        # Handle recommendation and solution
-        if happyjs_recommendation and 'rekomendasi' in happyjs_recommendation:
-            solusi_penanganan = happyjs_recommendation['rekomendasi']
-        else:
-            solusi_penanganan = 'Tidak ada rekomendasi solusi yang tersedia untuk saat ini.'
+        # Get food recommendation
+        food_recommendation = get_food_recommendation(predicted_label)
 
         # Display the results as JSON
         results = {
             'Hasil': predicted_label,
             'kemungkinan': {label: float(prob) for label, prob in zip(label_mapping.values(), prediction_probabilities)},
-            'Solusi yang bisa Anda lakukan': solusi_penanganan
+            'rekomendasi_panganan': food_recommendation
         }
 
         return jsonify(results)
