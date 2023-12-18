@@ -3,51 +3,32 @@ import numpy as np
 from tensorflow.keras.models import load_model
 import librosa
 import os
-import requests 
-from google.cloud import storage
-from google.auth import exceptions
+import requests  # Import library untuk melakukan HTTP request
 
 app = Flask(__name__)
 
-# Set the path to the service account key file
-key_path = 'serviceaccountkey.json'
-
-# Set the environment variable for Google Cloud credentials
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
-
 # Path to the trained model
-model_path = 'model/checkpoint.h5'
-
-# Set your GCS bucket name
-gcs_bucket_name = 'audio_disada'
-
-try:
-    # Initialize GCS client
-    storage_client = storage.Client()
-except exceptions.DefaultCredentialsError as e:
-    print(f"Error: {e}")
+model_path = 'model\checkpoint.h5'
 
 # Mapping from class index to labels
 label_mapping = {
-    0: 'bayi sedang kesakitan',
-    1: 'bayi sedang merasa kembung',
-    2: 'bayi merasa kurang nyaman',
-    3: 'bayi sedang lapar',
-    4: 'bayi sedang lelah'
+    0: 'sedang merasa kesakitan',
+    1: 'sedang merasa kembung',
+    2: 'merasa kurang nyaman',
+    3: 'sedang lapar',
+    4: 'sedang lelah'
 }
 
 # Load the model
 loaded_model = load_model(model_path)
 model_input_shape = loaded_model.input_shape[1:]
 
-# Function to upload file to GCS
-def upload_to_gcs(file, destination_blob_name):
-    bucket = storage_client.bucket(gcs_bucket_name)
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_file(file)
+# Menentukan direktori untuk menyimpan file sementara
+temp_audio_dir = 'disada_audio'
+os.makedirs(temp_audio_dir, exist_ok=True)
 
-def extract_features_new_audio(file_uri):
-    y, sr = librosa.load(file_uri)
+def extract_features_new_audio(file_path):
+    y, sr = librosa.load(file_path)
 
     # Extract audio features as before
     mfccs = np.mean(librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13), axis=1)
@@ -77,46 +58,60 @@ def predict_label(audio_features):
 
     return predicted_label, prediction_probabilities[0]
 
+def get_happyjs_recommendation(predicted_label):
+    # Make an HTTP request to HappyJS endpoint
+    happyjs_url = 'https://disada-backend-cc-ctlb7v5egq-et.a.run.app/predict/recommendation'
+    response = requests.post(happyjs_url, json={'Solusi': predicted_label})
+    
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
+
+@app.route('/')
+def index():
+    return 'Aplikasi Mobile Sedang Berjalan'
+
 @app.route('/predict', methods=['POST'])
-def predict():
+def predict_mobile():
     try:
-        # Get the uploaded file from the mobile app
-        audio_file = request.files['audio']
+        # Check if the 'file' key is in the request
+        if 'file' not in request.files:
+            return jsonify({'error': 'File not found in request'})
 
-        # Set a unique name for the audio file in GCS
-        gcs_blob_name = 'audio_files/{}'.format(audio_file.filename)
+        # Get the uploaded file from the request
+        uploaded_file = request.files['file']
 
-        # Save the file to GCS
-        upload_to_gcs(audio_file, gcs_blob_name)
+        # Check if the file has an allowed extension (adjust as needed)
+        allowed_extensions = {'wav'}
+        if '.' not in uploaded_file.filename or uploaded_file.filename.split('.')[-1].lower() not in allowed_extensions:
+            return jsonify({'error': 'Invalid file format'})
 
-        # Get the GCS URI for the uploaded audio
-        gcs_audio_uri = f'gs://{gcs_bucket_name}/{gcs_blob_name}'
+        # Save the file to a temporary location
+        temp_file_path = os.path.join(temp_audio_dir, 'temp_audio.wav')
+        uploaded_file.save(temp_file_path)
 
         # Extract features from the uploaded audio
-        audio_features = extract_features_new_audio(gcs_audio_uri)
+        audio_features = extract_features_new_audio(temp_file_path)
 
         # Perform prediction
         predicted_label, prediction_probabilities = predict_label(audio_features)
 
-        # Prepare the results to be sent back to the mobile app
+        # Get recommendation from HappyJS
+        happyjs_recommendation = get_happyjs_recommendation(predicted_label)
+
+        # Display the results as JSON
         results = {
-            'predicted_label': predicted_label,
-            'prediction_probabilities': {label: prob.item() for label, prob in zip(label_mapping.values(), prediction_probabilities)}
+            'Bayi Anda': predicted_label,
+            'Kemungkinan lainnya': {label: float(prob) for label, prob in zip(label_mapping.values(), prediction_probabilities)},
+            'Solusi untuk buah hati Anda': happyjs_recommendation
         }
 
-        # Make a request to HapiJS backend
-        hapijs_endpoint = 'https://disada-backend-cc-ctlb7v5egq-et.a.run.app/predict/recommendation'  
-        response = requests.post(hapijs_endpoint, json=results)
-
-        # Check if the request was successful
-        if response.status_code == 200:
-            return jsonify(results)  
-        else:
-            return jsonify({'error': f'Request to HapiJS backend failed with status code {response.status_code}'})
+        return jsonify(results)
 
     except Exception as e:
         return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)
