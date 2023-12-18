@@ -16,7 +16,7 @@ key_path = 'serviceaccountkey.json'
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
 
 # Path to the trained model
-model_path = 'model\checkpoint.h5'
+model_path = 'model/checkpoint.h5'
 
 # Set your GCS bucket name
 gcs_bucket_name = 'audio_disada'
@@ -118,4 +118,5 @@ def predict():
         return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=True)
