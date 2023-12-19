@@ -8,7 +8,7 @@ import requests
 app = Flask(__name__)
 
 # Path to the trained model
-model_path = 'model\checkpoint.h5'
+model_path = os.path.join('model', 'checkpoint.h5')
 
 # Mapping from class index to labels
 label_mapping = {
