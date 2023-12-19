@@ -1,3 +1,6 @@
+__pycache__
+.vscode
+.git
 deployment/templates/
 deployment/simulasi.py
 audio_features.py
